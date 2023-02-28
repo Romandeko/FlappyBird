@@ -9,8 +9,8 @@ import SpriteKit
 import GameplayKit
 
 class GameScene: SKScene, SKPhysicsContactDelegate {
-    //MARK: - Private properties
     
+    //MARK: - Stored properties
     var record : Int{
         get{
             UserDefaults.standard.integer(forKey: "Record")
@@ -21,10 +21,45 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         
     }
     
-    private var bird = SKSpriteNode(imageNamed: "bird2")
-    private var background = SKSpriteNode(imageNamed: "background-day")
-    private var getReady = SKSpriteNode(imageNamed: "getReady")
+    //MARK: - UI properties
+    private lazy var bird = {
+        let node = SKSpriteNode(imageNamed: "bird2")
+        node.name = "Bird"
+        node.size = CGSize(width: 100, height: 80)
+        node.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        node.position = CGPoint(x: size.width/20 - 70, y: size.height/12 - 20)
+        node.zPosition = 10
+        return node
+    }()
     
+    private lazy var background = {
+        let node = SKSpriteNode(imageNamed: "background-day")
+        node.zPosition = -100
+        node.position = CGPoint.zero
+        node.size = CGSize(width: size.width, height: size.height)
+        return node
+    }()
+    
+    private lazy var getReady = {
+        let node = SKSpriteNode(imageNamed: "getReady")
+        node.zPosition = 1
+        node.position = CGPoint(x: 0, y: 300)
+        node.size = CGSize(width: 300, height: 100)
+        return node
+    }()
+    
+    private lazy var scoreLabel = {
+        let node = SKLabelNode(fontNamed: "Chalkduster")
+        node.zPosition = 2
+        node.text = "0"
+        node.fontSize = 65
+        node.fontColor = SKColor.white
+        node.zPosition = 50
+        node.position = CGPoint(x: size.width/3, y: size.height/2.5)
+        return node
+    }()
+    
+    //MARK: - Private properties
     private var birdAnimation = [SKTexture]()
     private var upRotate = SKAction()
     private var downRotate = SKAction()
@@ -46,38 +81,16 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     private let wingSound = SKAction.playSoundFileNamed("wing", waitForCompletion: false)
     private let hitSound = SKAction.playSoundFileNamed("hit", waitForCompletion: false)
     private let pointSound = SKAction.playSoundFileNamed("point", waitForCompletion: false)
-    private let scoreLabel = SKLabelNode(fontNamed: "Chalkduster")
+    
     
     
     //MARK: - Override methods
     override func didMove(to view: SKView) {
         addEverything()
         createGrounds()
-        createBird()
+        
         createAnimation()
         createPipes(withName: 0)
-    }
-    
-    private func timerCount(){
-        time += 1
-        
-        if time % spawnTime == 0{
-            createPipes(withName: time)
-            currentPipesNumber = time
-            previousPipesNumber = time - spawnTime
-        }
-        
-        if time % 11 == 0{
-            self.enumerateChildNodes(withName: "Pipe\(currentPipesNumber - spawnTime * 2)", using:({
-                (node,error) in
-                node.removeFromParent()
-            }))
-            
-            self.enumerateChildNodes(withName: "PipeRev\(currentPipesNumber - spawnTime * 2)", using:({
-                (node,error) in
-                node.removeFromParent()
-            }))
-        }
     }
     
     override func update(_ currentTime: TimeInterval) {
@@ -103,7 +116,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                 
             }))
             
-            
             self.enumerateChildNodes(withName: "Pipe\(previousPipesNumber)", using:({
                 (node,error) in
                 
@@ -114,11 +126,9 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                 }
             }))
         }
-        
         moveGrounds()
-        
     }
-
+    
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         if !gameStarted{
             bird.physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: bird.frame.width, height: bird.frame.height))
@@ -138,23 +148,11 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         }
     }
     //MARK: - Create  sprites
-    
     private func addEverything(){
-        scoreLabel.text = "0"
-        scoreLabel.fontSize = 65
-        scoreLabel.fontColor = SKColor.white
-        scoreLabel.zPosition = 50
-        scoreLabel.position = CGPoint(x: size.width/3, y: size.height/2.5)
         addChild(scoreLabel)
-        
-        background.position = CGPoint.zero
-        background.size = CGSize(width: size.width, height: size.height)
         addChild(background)
-        
-        getReady.position = CGPoint(x: 0, y: 300)
-        getReady.size = CGSize(width: 300, height: 200)
         addChild(getReady)
-        
+        addChild(bird)
         physicsWorld.contactDelegate = self
         anchorPoint = CGPoint(x: 0.5, y: 0.5)
     }
@@ -176,47 +174,44 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         }
     }
     
+    private func makePipe(withName name: Int, step stepY: CGFloat, isReversed: Bool = false) -> SKSpriteNode {
+        let imageName = isReversed ? "piperev" : "pipe"
+        let pipe = SKSpriteNode(imageNamed: imageName)
+        
+        pipe.name = isReversed
+        ? "PipeRev\(name)"
+        : "Pipe\(name)"
+        pipe.size = CGSize(width: 200, height: 800)
+        pipe.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        pipe.position = isReversed
+        ? CGPoint(x: xCoordinate + 500, y:yCoordinateTop + stepY)
+        : CGPoint(x: xCoordinate + 500, y:yCoordinateBot + stepY)
+        pipe.zPosition = 14
+        pipe.physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: 200, height: 800))
+        pipe.physicsBody?.isDynamic = false
+        pipe.physicsBody?.allowsRotation = false
+        pipe.physicsBody?.affectedByGravity = false
+        pipe.physicsBody?.contactTestBitMask = 1
+        return pipe
+    }
+    
     private func createPipes(withName name: Int){
         
         for _ in 0...pipesCount{
             let randomStepY = CGFloat.random(in: 0...300)
-        
-            let pipe = SKSpriteNode(imageNamed: "pipe")
-            pipe.name = "Pipe\(name)"
-            pipe.size = CGSize(width: 200, height: 800)
-            pipe.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-            pipe.position = CGPoint(x: xCoordinate + 500, y:yCoordinateBot + randomStepY)
-            pipe.zPosition = 14
-            pipe.physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: 200, height: 800))
-            pipe.physicsBody?.isDynamic = false
-            pipe.physicsBody?.allowsRotation = false
-            pipe.physicsBody?.affectedByGravity = false
-            pipe.physicsBody?.contactTestBitMask = 1
-            self.addChild(pipe)
             
-            let pipeRev = SKSpriteNode(imageNamed: "piperev")
-            pipeRev.name = "PipeRev\(name)"
-            pipeRev.size = CGSize(width: 200, height: 800)
-            pipeRev.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-            pipeRev.position = CGPoint(x: xCoordinate + 500, y:yCoordinateTop + randomStepY)
-            xCoordinate = pipeRev.position.x
-            pipeRev.zPosition = 14
-            pipeRev.physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: 200, height: 800))
-            pipeRev.physicsBody?.isDynamic = false
-            pipeRev.physicsBody?.allowsRotation = false
-            pipeRev.physicsBody?.affectedByGravity = false
-            pipeRev.physicsBody?.contactTestBitMask = 1
+            let pipe = makePipe(withName: name, step: randomStepY)
+            let pipeRev = makePipe(withName: name, step: randomStepY, isReversed: true)
+            
+            self.addChild(pipe)
             self.addChild(pipeRev)
+            
+            xCoordinate = pipeRev.position.x
         }
         xCoordinate = 700
     }
     
     private func createBird(){
-        bird.name = "Bird"
-        bird.size = CGSize(width: 100, height: 80)
-        bird.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-        bird.position = CGPoint(x: size.width/20 - 70, y: size.height/12 - 20)
-        bird.zPosition = 10
         self.addChild(bird)
     }
     
@@ -253,7 +248,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         let textureAtlas = SKTextureAtlas(named: "Sprites")
         for i in 1..<textureAtlas.textureNames.count{
             let name = "bird"  + String(i)
-            
             birdAnimation.append(textureAtlas.textureNamed(name))
         }
         
@@ -269,7 +263,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             bird.removeAction(forKey: "up")
             oldY = newY
         }
-        
     }
     
     private func stopGame(){
@@ -282,16 +275,35 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         bird.run(downRotate)
         
         DispatchQueue.main.asyncAfter(wallDeadline: .now() + 1.5){ [self] in
-            
             let reveal = SKTransition.flipHorizontal(withDuration: 0.5)
             let gameOverScene = GameOverScene(size: size,score : score,record: record)
             view?.presentScene(gameOverScene, transition: reveal)
-            
         }
     }
     
+    //MARK: - Timer
+    private func timerCount(){
+        time += 1
+        if time % spawnTime == 0{
+            createPipes(withName: time)
+            currentPipesNumber = time
+            previousPipesNumber = time - spawnTime
+        }
+        
+        if time % 11 == 0{
+            self.enumerateChildNodes(withName: "Pipe\(currentPipesNumber - spawnTime * 2)", using:({
+                (node,error) in
+                node.removeFromParent()
+            }))
+            
+            self.enumerateChildNodes(withName: "PipeRev\(currentPipesNumber - spawnTime * 2)", using:({
+                (node,error) in
+                node.removeFromParent()
+            }))
+        }
+    }
     
-     func didBegin(_ contact: SKPhysicsContact) {
+    func didBegin(_ contact: SKPhysicsContact){
         if !gameEnded{
             run(hitSound)
             stopGame()
